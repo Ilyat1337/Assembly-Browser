@@ -4,6 +4,7 @@
     {
         Namespace = 0,
         Folder,
+        ExtensionMethod,
 
         Class,
         Interface,

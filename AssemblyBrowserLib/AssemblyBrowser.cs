@@ -1,4 +1,5 @@
 ﻿using AssemblyBrowserLib.AssemblyTree;
+using AssemblyBrowserLib.exceptions;
 using AssemblyBrowserLib.Utils;
 using System;
 using System.Collections.Generic;
@@ -10,23 +11,49 @@ namespace AssemblyBrowserLib
 {
     public class  AssemblyBrowser
     {
+        private class ExtMethodInfo
+        {
+            public MemberInfo ParentClass
+            { get; set; }
+
+            public AssemblyNode Node
+            { get; set; }
+
+            public AssemblyNode ParentNode
+            { get; set; }
+        }
+
         private Assembly assembly;
         private Dictionary<string, List<AssemblyNode>> namespaceToTypesMap;
+        private List<ExtMethodInfo> extensionMethods;
+        private Dictionary<MemberInfo, AssemblyNode> classesMap;
 
         public AssemblyBrowser()
         {            
             namespaceToTypesMap = new Dictionary<string, List<AssemblyNode>>();
+            extensionMethods = new List<ExtMethodInfo>();
+            classesMap = new Dictionary<MemberInfo, AssemblyNode>();
         }
 
         public void LoadAssemblyFromFile(string assemblyFilePath)
         {
-            assembly = Assembly.LoadFile(assemblyFilePath);
+            try
+            {
+                assembly = Assembly.LoadFrom(assemblyFilePath);
+            } 
+            catch (Exception)
+            {
+                throw new AssemblyLoadException();
+            }
         }
 
         public AssemblyNode GetAssemblyTree()
         {
+            if (assembly == null)
+                throw new AssemblyNotLoadedException();
             Type[] assemblyTypes = GetAssemblyTypes(assembly);
             FillNamespaceToTypeMapForTypes(assemblyTypes);
+            ResolveExtensionMethods();
             return TreeConstructionUtils.ConstructAssemblyTree(namespaceToTypesMap);
         }
 
@@ -41,22 +68,55 @@ namespace AssemblyBrowserLib
             {
                 types = e.Types;
             }
-            
-            return types.Where(type => !type.IsNested
+            catch (Exception)
+            {
+                assembly = null;
+                throw new AssemblyLoadException();
+            }
+
+            types = types.Where(type => type != null && !type.IsNested
                 && type.GetCustomAttribute<CompilerGeneratedAttribute>() == null).ToArray();
+            if (types.Length == 0)
+                throw new AssemblyLoadException();
+            return types;
         }
 
         private void FillNamespaceToTypeMapForTypes(Type[] assemblyTypes)
         {
             namespaceToTypesMap.Clear();
-            foreach (Type type in assemblyTypes)
+            extensionMethods.Clear();
+            classesMap.Clear();
+
+            AssemblyNode rootNode = new AssemblyNode(NodeType.Namespace);
+            FillNestedMembers(assemblyTypes, rootNode);
+            for (int i = 0; i < rootNode.GetNodes().Count; i++)
+            { 
+                if (!namespaceToTypesMap.ContainsKey(assemblyTypes[i].Namespace))
+                    namespaceToTypesMap.Add(assemblyTypes[i].Namespace, new List<AssemblyNode>());
+                namespaceToTypesMap[assemblyTypes[i].Namespace].Add(rootNode.GetNodes()[i]);
+            }
+        }
+
+        private void FillNestedMembers(MemberInfo[] childMembers, AssemblyNode parentNode)
+        {
+            foreach (MemberInfo member in childMembers)
             {
-                AssemblyNode assemblyNode = TryMemberInfoToAssemblyNode(type);
-                if (assemblyNode != null)
+                AssemblyNode innerNode = TryMemberInfoToAssemblyNode(member);
+                if (innerNode != null)
                 {
-                    if (!namespaceToTypesMap.ContainsKey(type.Namespace))
-                        namespaceToTypesMap.Add(type.Namespace, new List<AssemblyNode>());
-                    namespaceToTypesMap[type.Namespace].Add(assemblyNode);
+                    parentNode.AddNode(innerNode);
+                    if (innerNode.NodeType == NodeType.Class)
+                        classesMap.Add(member, innerNode);
+                    else if (ExtensionMethodUtils.IsextensionMethod(member))
+                    {
+                        ExtensionMethodUtils.ChangeNodeTypeToExtensionMethod(innerNode);
+                        extensionMethods.Add(new ExtMethodInfo()
+                        {
+                            ParentClass = ExtensionMethodUtils.GetExtensionMethodClass(member),
+                            Node = innerNode,
+                            ParentNode = parentNode
+                        });
+                    }
                 }
             }
         }
@@ -72,7 +132,7 @@ namespace AssemblyBrowserLib
 
             if (CanHaveNestedMembers(assemblyNode))
             {
-                FillNestedMembers(memberInfo, assemblyNode);
+                FillNestedMembers(GetMemberInfos(memberInfo as Type), assemblyNode);
             }
             return assemblyNode;
         }
@@ -82,14 +142,15 @@ namespace AssemblyBrowserLib
             return assemblyNode.NodeType >= NodeType.Class && assemblyNode.NodeType <= NodeType.Enum;
         }
 
-        private void FillNestedMembers(MemberInfo memberInfo, AssemblyNode assemblyNode)
+        private void ResolveExtensionMethods()
         {
-            MemberInfo[] membersInfo = GetMemberInfos(memberInfo as Type);
-            foreach (MemberInfo member in membersInfo)
+            foreach (ExtMethodInfo extMethodInfo in extensionMethods)
             {
-                AssemblyNode innerNode = TryMemberInfoToAssemblyNode(member);
-                if (innerNode != null)
-                    assemblyNode.AddNode(innerNode);
+                if (classesMap.ContainsKey(extMethodInfo.ParentClass))
+                {
+                    extMethodInfo.ParentNode.GetNodes().Remove(extMethodInfo.Node);
+                    classesMap[extMethodInfo.ParentClass].GetNodes().Add(extMethodInfo.Node);
+                }
             }
         }
 

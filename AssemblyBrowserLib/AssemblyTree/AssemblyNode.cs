@@ -17,7 +17,7 @@ namespace AssemblyBrowserLib.AssemblyTree
         public NodeType NodeType
         {
             get { return nodeType; }
-            private set { nodeType = value; }
+            internal set { nodeType = value; }
         }
 
         public AccessModifire AccessModifire
