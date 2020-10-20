@@ -9,11 +9,6 @@ namespace AssemblyBrowserLib.AssemblyTree
         private string textRepresentation;
         private List<AssemblyNode> nodes;
 
-        protected internal class He
-        {
-
-        }
-
         public AssemblyNode(NodeType nodeType)
         {
             NodeType = nodeType;

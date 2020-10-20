@@ -2,7 +2,7 @@
 {
     public enum NodeType
     {
-        Namespace = 1,
+        Namespace = 0,
         Folder,
 
         Class,

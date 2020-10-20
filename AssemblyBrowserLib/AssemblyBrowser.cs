@@ -64,7 +64,7 @@ namespace AssemblyBrowserLib
         private AssemblyNode TryMemberInfoToAssemblyNode(MemberInfo memberInfo)
         {
             NodeType nodeType = NodeTypeUtils.GetNodeTypeByMemberInfo(memberInfo);
-            if (nodeType == 0)
+            if (nodeType == (NodeType)(-1))
                 return null;
             AssemblyNode assemblyNode = new AssemblyNode(nodeType);
             assemblyNode.AccessModifire = AccessModifireUtils.GetAccessModifireFor(memberInfo);
@@ -98,6 +98,8 @@ namespace AssemblyBrowserLib
             return type.GetMembers(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Static | 
                                     BindingFlags.Public | BindingFlags.NonPublic)
                 .Where(member => ((member is MethodBase) ? !(member as MethodBase).IsSpecialName : true) 
+                && ((member is FieldInfo) ? !(member as FieldInfo).IsSpecialName : true)
+                && ((member is PropertyInfo) ? !(member as PropertyInfo).IsSpecialName : true)
                 && member.GetCustomAttribute<CompilerGeneratedAttribute>() == null).ToArray();
         }
     }

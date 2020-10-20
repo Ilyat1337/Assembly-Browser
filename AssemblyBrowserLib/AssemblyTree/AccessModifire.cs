@@ -2,7 +2,7 @@
 {
     public enum AccessModifire
     {
-        Public = 1,
+        Public = 0,
         Protected,
         Internal,
         Private

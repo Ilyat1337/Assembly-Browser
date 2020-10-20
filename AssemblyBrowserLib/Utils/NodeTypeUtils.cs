@@ -6,7 +6,7 @@ namespace AssemblyBrowserLib.Utils
 {
     class NodeTypeUtils
     {
-        public static  NodeType GetNodeTypeByMemberInfo(MemberInfo memberInfo)
+        public static NodeType GetNodeTypeByMemberInfo(MemberInfo memberInfo)
         {
             if (memberInfo is Type)
             {
@@ -21,7 +21,7 @@ namespace AssemblyBrowserLib.Utils
                     return NodeType.Enum;
                 if (type.IsValueType)
                     return NodeType.Struct;
-                return 0;
+                return (NodeType)(-1);
             }
             switch (memberInfo.MemberType)
             {
@@ -35,7 +35,7 @@ namespace AssemblyBrowserLib.Utils
                 case MemberTypes.Event:
                     return NodeType.Event;
             }
-            return 0;
+            return (NodeType)(-1);
         }
     }
 }

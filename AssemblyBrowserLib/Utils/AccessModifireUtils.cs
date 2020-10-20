@@ -53,7 +53,7 @@ namespace AssemblyBrowserLib.Utils
                 case MemberTypes.Event:
                     return GetAccessModifireForEvent(memberInfo as EventInfo);
             }
-            return 0;
+            return (AccessModifire)(-1);
         }
 
         private static AccessModifire GetAccessModifireForMethod(MethodBase methodBase)
